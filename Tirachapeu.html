@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Tour Palacete Tira-Chapéu</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #f0f0f0; }
+    canvas { position: fixed; top: 0; left: 0; z-index: 0; }
+    .card-container { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; height: 100vh; perspective: 1200px; }
+    .card { width: 450px; background: rgba(255, 255, 255, 0.97); border-radius: 20px; padding: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.25); transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
+    .card:hover { transform: rotateY(5deg) rotateX(5deg) scale(1.02); }
+    h2 { text-align: center; color: #00695c; margin-bottom: 20px; font-size: 1.8em; }
+    .topic { background: #e0f2f1; padding: 12px 18px; margin: 12px 0; border-radius: 10px; cursor: pointer; transition: background 0.3s, transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .topic:hover { background: #b2dfdb; transform: translateX(5px); }
+    .modal { position: fixed; top: 0; left: 0; height: 100vh; width: 100vw; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 10; padding: 20px; }
+    .modal-content { background: white; max-width: 750px; width: 90%; padding: 30px; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); position: relative; animation: fadeIn 0.4s ease-out; max-height: 90vh; overflow-y: auto;}
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.9) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+    .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #555; transition: color 0.2s; }
+    .close-btn:hover { color: #000; }
+    .modal h3 { margin-top: 0; color: #004d40; font-size: 1.6em; margin-bottom: 15px; }
+    .modal h4 { color: #00574B; font-size: 1.3em; margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid #b2dfdb; padding-bottom: 5px;}
+    .modal p, .modal li { color: #333; line-height: 1.7; font-size: 1.05em; margin-bottom: 10px; /* Adicionado margin-bottom para parágrafos */ }
+    .modal ul, .modal ol { padding-left: 20px; margin-bottom: 15px; }
+    .modal a { color: #00796b; text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+
+    .restaurant-btn {
+      background-color: #00796b; color: white; padding: 12px 18px; margin: 8px 0; border-radius: 8px;
+      cursor: pointer; transition: background-color 0.3s, transform 0.2s; text-align: left;
+      font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .restaurant-btn:hover { background-color: #004d40; transform: translateY(-2px); }
+    .restaurant-details {
+      display: none; padding: 15px; margin-top: -5px; margin-bottom: 10px;
+      background-color: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 0 0 8px 8px;
+      font-size: 0.95em; color: #2e7d32;
+    }
+    .restaurant-details p { margin: 8px 0; font-size: 0.98em; line-height: 1.6;}
+    .restaurant-details strong { color: #00695c; }
+    .restaurant-details a { font-weight: bold; }
+
+    .speakable-trigger {
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .speakable-trigger:hover {
+        color: #007bff;
+    }
+    .speaking-active {
+        color: #28a745 !important;
+        font-weight: bold;
+    }
+    .curiosity-section p { /* Parágrafos dentro da nova seção de curiosidades */
+        margin-bottom: 12px; /* Espaçamento entre parágrafos de curiosidades */
+        line-height: 1.75;
+    }
+    .curiosity-section strong.speakable-trigger { /* Destaque para os gatilhos de fala */
+        color: #00695c; /* Uma cor que combine com o tema */
+    }
+    .instagram-link-roteiro {
+        font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="card-container">
+    <div class="card">
+      <h2>🏛️ Palacete Tira-Chapéu</h2>
+      <div class="topic" onclick="openModal(0)">📍 Localização e Acesso</div>
+      <div class="topic" onclick="openModal(1)">🏗️ História e Arquitetura</div>
+      <div class="topic" onclick="openModal(2)">🛠️ Restauro e Revitalização</div>
+      <div class="topic" onclick="openModal(3)">🍽️ Complexo Gastronômico e Cultural</div>
+      <div class="topic" onclick="openModal(4)">🖼️ Exposições e Eventos Atuais</div>
+      <div class="topic" onclick="openModal(5)">🗺️ Sugestão de Roteiro e Curiosidades</div>
+    </div>
+  </div>
+
+  <div id="modals"></div>
+
+  <script>
+    let utterance = null;
+    let currentlySpeakingElement = null;
+
+    const modalContent = [
+      { // 0
+        title: '📍 Localização e Acesso',
+        text: `
+          <p>O Palacete Tira-Chapéu está estrategicamente situado no coração do Centro Histórico de Salvador, na esquina da Rua Chile com a Rua do Tira-Chapéu.</p>
+          <ul>
+            <li><strong>Endereço:</strong> Praça Castro Alves, Nº 12, Rua Chile - Centro, Salvador - BA, 40020-160.</li>
+            <li><strong>Ponto de Referência:</strong> Próximo ao Elevador Lacerda e ao Mercado Modelo, facilitando a visita combinada a outros pontos turísticos.</li>
+            <li><strong>Como Chegar:</strong>
+              <ul>
+                <li><strong>Transporte Público:</strong> Diversas linhas de ônibus servem a região do Centro Histórico.</li>
+                <li><strong>Transporte por Aplicativo/Táxi:</strong> Acesso direto e conveniente.</li>
+                <li><strong>A Pé:</strong> Ideal para quem já está explorando o Centro Histórico.</li>
+              </ul>
+            </li>
+          </ul>
+          <p>Sua localização privilegiada oferece vistas deslumbrantes da Baía de Todos os Santos.</p>
+        `
+      },
+      { // 1
+        title: '🏗️ História e Arquitetura',
+        text: `
+          <p>O Palacete Tira-Chapéu é uma joia arquitetônica que remonta ao início do século XX.</p>
+          <ul>
+            <li><strong>Ano de Construção:</strong> Projetado em 1914 e inaugurado em 1917.</li>
+            <li><strong>Arquiteto:</strong> Rossi Baptista, renomado arquiteto da época.</li>
+            <li><strong>Estilo Arquitetônico:</strong> Eclético, com uma rica ornamentação que mescla elementos do barroco tardio, neoclássico e art nouveau. Destacam-se as fachadas imponentes, varandas com gradis de ferro trabalhado e detalhes escultóricos.</li>
+            <li><strong>Importância Histórica:</strong> Originalmente concebido para ser um centro comercial de luxo, o edifício foi um marco da modernização urbana de Salvador e um símbolo de prestígio da Rua Chile, a primeira rua planejada do Brasil.</li>
+          </ul>
+          <p>Ao longo dos anos, abrigou diversas atividades comerciais e escritórios, sendo uma testemunha viva das transformações da cidade.</p>
+        `
+      },
+      { // 2
+        title: '🛠️ Restauro e Revitalização',
+        text: `
+          <p>O processo de restauro do Palacete Tira-Chapéu foi um trabalho minucioso para devolver o esplendor original ao edifício, adaptando-o para novos usos contemporâneos.</p>
+          <ul>
+            <li><strong>Responsável pelo Restauro:</strong> Elysium Sociedade Cultural, com apoio de investidores e sob supervisão de órgãos de patrimônio.</li>
+            <li><strong>Período:</strong> Concluído entre 2021 e 2024.</li>
+            <li><strong>Foco do Restauro:</strong>
+              <ul>
+                <li>Preservação da fachada e elementos ornamentais originais.</li>
+                <li>Recuperação de estruturas internas, pisos, esquadrias e pinturas decorativas.</li>
+                <li>Modernização das instalações (elétrica, hidráulica, climatização) para garantir conforto e segurança.</li>
+                <li>Adaptação dos espaços para abrigar o novo complexo gastronômico e cultural.</li>
+              </ul>
+            </li>
+          </ul>
+          <p>O objetivo foi não apenas restaurar um patrimônio, mas reintegrá-lo ativamente à vida cultural e social de Salvador.</p>
+        `
+      },
+      { // 3
+        title: '🍽️ Complexo Gastronômico e Cultural',
+        text: `
+          <p>O Palacete Tira-Chapéu abriga uma seleção de restaurantes que oferecem diversas experiências culinárias em um ambiente histórico e charmoso.</p>
+          <div class="restaurant-btn" onclick="toggleDetails(0)">PUB 1549 ➕</div>
+          <div class="restaurant-details" id="rest0">
+            <p><strong>Conceito:</strong> Um espaço para desfrutar de drinks especiais e clássicos, acompanhados de petiscos e boa música.</p>
+            <p><strong>Ambiente:</strong> Intimista e acolhedor, perfeito para um happy hour ou uma noite descontraída com amigos.</p>
+            <p><strong>Destaques:</strong> Carta de drinks variada e seleção de petiscos.</p>
+            <p><a href="https://palacetetirachapeu.com.br/gastronomia/pub-1549/" target="_blank">Mais Informações</a> | <a href="https://www.instagram.com/pub.1549/" target="_blank">Instagram</a></p>
+          </div>
+          <div class="restaurant-btn" onclick="toggleDetails(1)">PALÀ ➕</div>
+          <div class="restaurant-details" id="rest1">
+            <p><strong>Conceito:</strong> Charme e elegância definem o PALÀ, que oferece um menu contemporâneo celebrando ingredientes locais com sofisticação.</p>
+            <p><strong>Ambiente:</strong> Possui um deslumbrante terraço com vista panorâmica para a Baía de Todos os Santos, ideal para momentos especiais.</p>
+            <p><strong>Destaques:</strong> Culinária sofisticada e vista privilegiada.</p>
+            <p><a href="https://palacetetirachapeu.com.br/gastronomia/pala-7/" target="_blank">Mais Informações</a> | <a href="https://www.instagram.com/pala7rooftop/" target="_blank">Instagram</a></p>
+          </div>
+          <div class="restaurant-btn" onclick="toggleDetails(2)">CASARÌA ➕</div>
+          <div class="restaurant-details" id="rest2">
+            <p><strong>Conceito:</strong> Um convite ao aconchego e ao sabor de casa, com receitas tradicionais preparadas com um toque de carinho.</p>
+            <p><strong>Ambiente:</strong> Perfeito para um café da manhã reforçado, um almoço saboroso ou lanches ao longo do dia.</p>
+            <p><strong>Destaques:</strong> Comida caseira, ambiente acolhedor para refeições diárias.</p>
+            <p><a href="https://palacetetirachapeu.com.br/gastronomia/casaria/" target="_blank">Mais Informações</a> | <a href="https://www.instagram.com/casaria.ssa/" target="_blank">Instagram</a></p>
+          </div>
+          <div class="restaurant-btn" onclick="toggleDetails(3)">PRETA - Cozinha de Raiz ➕</div>
+          <div class="restaurant-details" id="rest3">
+            <p><strong>Conceito:</strong> Uma imersão na gastronomia ancestral, trazendo os sabores autênticos da Ilha de Maré e do Recôncavo Baiano.</p>
+            <p><strong>Ambiente:</strong> Proporciona uma experiência cultural rica, conectando o visitante com as raízes da culinária local.</p>
+            <p><strong>Chef:</strong> Associado à renomada Chef Angeluci Figueiredo (verificar informações no local para detalhes mais atuais sobre a operação).</p>
+            <p><strong>Destaques:</strong> Culinária baiana de raiz, valorização de ingredientes e tradições locais.</p>
+            <p><a href="https://palacetetirachapeu.com.br/gastronomia/preta-restaurante/" target="_blank">Mais Informações</a> | <a href="https://www.instagram.com/pretatirachapeu/" target="_blank">Instagram</a></p>
+          </div>
+        `
+      },
+      { // 4
+        title: '🖼️ Exposições e Eventos Atuais',
+        text: `
+          <p>Além da excelência gastronômica, o Palacete Tira-Chapéu se destaca como um espaço cultural dinâmico.</p>
+          <ul>
+            <li><strong>Exposição Permanente:</strong> Frequentemente, há espaços dedicados a contar a história do próprio Palacete e da Rua Chile, com fotografias antigas, documentos e artefatos.</li>
+            <li><strong>Eventos Culturais:</strong> O local sedia eventos como:
+              <ul>
+                <li>Lançamentos de livros</li>
+                <li>Pequenos shows musicais (jazz, bossa nova, MPB)</li>
+                <li>Palestras e workshops</li>
+                <li>Exposições de arte temporárias de artistas locais e nacionais</li>
+              </ul>
+            </li>
+            <li><strong>Como se Informar:</strong> Recomenda-se consultar o site oficial do Palacete Tira-Chapéu ou suas redes sociais para a programação mais recente. Muitas vezes, os próprios restaurantes do complexo divulgam os eventos.</li>
+          </ul>
+          <p>Visitar o Palacete é uma oportunidade de mergulhar na cultura baiana, seja através da gastronomia, da história ou das artes.</p>
+        `
+      },
+      { // 5
+        title: '🗺️ Sugestão de Roteiro e Curiosidades',
+        text: `
+          <h4>Sugestão de Roteiro de Visita</h4>
+          <p>Para aproveitar ao máximo sua visita, sugerimos o seguinte roteiro. Clique no título de cada passo para ouvir a narração:</p>
+          <div id="roteiro-text-content">
+            <ol>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Chegada e Contemplação da Fachada:</strong> Reserve alguns minutos para admirar a arquitetura externa do Palacete. Observe os detalhes ornamentais, as sacadas e a imponência da construção.</li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Explorar o Átrio e Áreas Comuns:</strong> Ao entrar, aprecie os espaços internos que foram restaurados, como o átrio principal e corredores, que podem conter elementos históricos ou artísticos.</li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Visitar Exposições (se houver):</strong> Verifique se há alguma exposição temporária ou a mostra permanente sobre a história do local.</li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Experiência Gastronômica:</strong> Escolha um dos restaurantes para uma refeição ou um drink. Considere fazer uma reserva antecipada, dependendo do dia e horário.
+                <ul>
+                  <li>Drinks e Petiscos: PUB 1549 <a href="https://www.instagram.com/pub.1549/" target="_blank" class="instagram-link-roteiro">(Instagram)</a>.</li>
+                  <li>Refeição Sofisticada com Vista: PALÀ <a href="https://www.instagram.com/pala7rooftop/" target="_blank" class="instagram-link-roteiro">(Instagram)</a>.</li>
+                  <li>Comida Caseira e Casual: CASARÌA <a href="https://www.instagram.com/casaria.ssa/" target="_blank" class="instagram-link-roteiro">(Instagram)</a>.</li>
+                  <li>Culinária de Raiz Baiana: PRETA <a href="https://www.instagram.com/pretatirachapeu/" target="_blank" class="instagram-link-roteiro">(Instagram)</a>.</li>
+                </ul>
+              </li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Salão Chile e Outros Espaços:</strong> Informe-se sobre a possibilidade de visitar outros salões ou espaços notáveis do Palacete, como o histórico Salão Chile, que pode estar aberto à visitação ou ser visível de alguma área.</li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Café ou Drink ao Entardecer:</strong> Alguns estabelecimentos podem oferecer opções para um café ou um drink, permitindo apreciar o ambiente e, possivelmente, a vista.</li>
+              <li><strong class="speakable-trigger" onclick="triggerSpeakStep(this)">Verificar Eventos do Dia:</strong> Consulte se há algum evento cultural acontecendo durante sua visita.</li>
+            </ol>
+          </div>
+          <p><strong>Dica:</strong> Combine sua visita ao Palacete com um passeio pelo Centro Histórico, visitando o Elevador Lacerda, Mercado Modelo e o Pelourinho.</p>
+
+          <h4 class="speakable-trigger" onclick="speakText(this.innerText + ' O Palacete Tira-Chapéu é um verdadeiro ícone no coração de Salvador, Bahia, refletindo a rica história e cultura da cidade. Desde sua construção, no início do século XX, o Palacete tem sido testemunha de muitos dos momentos mais importantes de Salvador.', this)">🔎 Curiosidades e Detalhes Histórico-Arquitetônicos</h4>
+          <div class="curiosity-section">
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">O Palacete Tira-Chapéu é um verdadeiro ícone no coração de Salvador, Bahia,</strong> refletindo a rica história e cultura da cidade. Desde sua construção, no início do século XX, o Palacete tem sido testemunha de muitos dos momentos mais importantes de Salvador.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Projetado em 1914, pelo renomado arquiteto italiano Rossi Baptista,</strong> o edifício foi originalmente projetado para abrigar a Associação dos Empregados do Comércio da Bahia. Com suas lojas, salas de escritório, salão nobre e biblioteca, o edifício rapidamente se tornou um ponto de referência na cidade.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Situado na histórica Rua Chile, o Palacete está no epicentro da evolução de Salvador,</strong> uma área que remonta à primeira capital do Brasil. E até hoje, o edifício se destaca não apenas por sua história, mas também por sua conexão profunda com a vida cultural e social da cidade.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Até hoje o Palacete não só preserva a herança cultural da Bahia,</strong> mas também a reinventa e a celebra, garantindo que a história e a cultura continuem a prosperar.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">O Palacete Tira-Chapéu, projetado pelo renomado arquiteto Rossi Baptista, é um exemplo impressionante da arquitetura eclética de Salvador.</strong> Conhecido por seu compromisso com a unidade e coesão em cada detalhe, Rossi garantiu que o edifício fosse uma verdadeira obra-prima em todos os aspectos.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">A integração harmoniosa dos elementos ornamentais,</strong> desde os forros de madeira e gesso com estuque até os pisos de ladrilho hidráulico policromático, revela um cuidado minucioso e uma visão artística consistente.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Os pisos do Palacete, em madeira e ladrilho hidráulico com mosaicos vibrantes,</strong> trazem um toque inovador da época e são um deleite visual.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">As peças hexagonais em verde, vermelho, amarelo e branco</strong> criam padrões florais que ecoam a elegância encontrada em outras obras de Rossi, como o Palacete das Artes.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Já os forros variam entre madeira e gesso,</strong> com detalhes decorativos que adicionam um charme especial, incluindo pinturas no Salão Nobre que realçam ainda mais a grandiosidade do espaço.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Cada detalhe do Palacete Tira-Chapéu é um tributo à habilidade e visão de Rossi Baptista.</strong> A fachada principal, com seus adornos sofisticados e elementos decorativos, e o hall interno, com técnicas variadas e peças integradas como vitrais e balaústres de madeira, demonstram uma rica tapeçaria de história e arte.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Este edifício não apenas preserva o legado arquitetônico de Salvador,</strong> mas também se destaca como um ícone da arquitetura eclética, oferecendo um vislumbre do esplendor do início do século XX.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Rossi não tinha uma formação acadêmica formal,</strong> era um autodidata e um visionário que transformou a paisagem urbana de Salvador com seus palacetes residenciais e edifícios comerciais.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Sua capacidade de combinar elementos diversos e criar fachadas impressionantes</strong> fez dele um arquiteto distinto, cujos trabalhos refletem um profundo entendimento das necessidades e estéticas de sua época.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">A sua habilidade em incorporar elementos ecléticos e criar fachadas impressionantes</strong> fez dele o maior expoente da arquitetura italiana na Salvador da primeira metade do século 20.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Seu trabalho não se limitou apenas a construções residenciais;</strong> ele também deixou sua marca em importantes edifícios institucionais e culturais, como a Escola de Teatro da UFBA e a Igreja de São Pedro da Piedade.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">A Rua do Chile é um elo com a história do Brasil,</strong> construída em 1549 por Tomé de Souza, a Rua Chile, foi a primeira rua do Brasil e o epicentro do comércio e da vida urbana.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">O Palacete Tira-Chapéu foi inaugurado como um tributo a rua,</strong> celebrando não apenas a sua importância histórica, mas também o espírito de progresso e sofisticação que ela representa.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Sua transformação ao longo do tempo reflete a evolução da cidade e da nação,</strong> desde os dias de Rua Direita até a homenagem ao Chile em 1902, que consagrou seu nome atual.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Ao longo dos séculos, esta rua se transformou em um palco para eventos históricos,</strong> mudanças políticas e prosperidade econômica, refletindo as diversas fases de crescimento e resiliência do país.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">No início do século XX, a Rua Chile era o coração pulsante de Salvador,</strong> oferecendo uma combinação vibrante de comércio, cultura e entretenimento, e se destacando com seus luxuosos estabelecimentos, cinemas e teatros.</p>
+            <p><strong class="speakable-trigger" onclick="triggerSpeakCuriosity(this)">Hoje, o Palacete Tira-Chapéu continua a ser um símbolo dessa homenagem,</strong> oferecendo aos visitantes uma oportunidade única de vivenciar a grandiosidade da arquitetura e da cultura de Salvador. Ao explorar o palacete, você se conecta com o passado vibrante da Rua Chile, vivenciando a história que moldou a cidade e apreciando a beleza de um dos seus mais icônicos marcos históricos.</p>
+          </div>
+        `
+      }
+    ];
+
+    const modalsContainer = document.getElementById('modals');
+    modalContent.forEach((m, i) => {
+      const modalDiv = document.createElement('div');
+      modalDiv.className = 'modal';
+      modalDiv.id = `modal${i}`;
+      modalDiv.innerHTML = `
+        <div class="modal-content">
+          <span class="close-btn" onclick="closeModal(${i})">&times;</span>
+          <h3>${m.title}</h3>
+          <div>${m.text}</div>
+        </div>`;
+      modalsContainer.appendChild(modalDiv);
+    });
+
+    function toggleDetails(index) {
+      const details = document.getElementById(`rest${index}`);
+      const button = details.previousElementSibling;
+      if (details.style.display === 'block') {
+        details.style.display = 'none';
+        button.innerHTML = button.innerHTML.replace('➖', '➕');
+      } else {
+        details.style.display = 'block';
+        button.innerHTML = button.innerHTML.replace('➕', '➖');
+      }
+    }
+
+    function openModal(index) {
+      document.getElementById(`modal${index}`).style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(index) {
+      document.getElementById(`modal${index}`).style.display = 'none';
+      document.body.style.overflow = 'auto';
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+      }
+      if (currentlySpeakingElement) {
+        currentlySpeakingElement.classList.remove('speaking-active');
+        currentlySpeakingElement = null;
+      }
+    }
+    
+    function triggerSpeakStep(clickedTitleElement) {
+        const listItem = clickedTitleElement.closest('li');
+        if (listItem) {
+            const textToSpeak = listItem.innerText.replace(/\s+/g, ' ').trim();
+            speakText(textToSpeak, clickedTitleElement);
+        }
+    }
+
+    function triggerSpeakCuriosity(clickedTitleElement) {
+        const paragraphItem = clickedTitleElement.closest('p');
+        if (paragraphItem) {
+            const textToSpeak = paragraphItem.innerText.replace(/\s+/g, ' ').trim();
+            speakText(textToSpeak, clickedTitleElement); // Feedback no <strong>
+        }
+    }
+    
+    function speakText(textToSpeak, feedbackElement) {
+        if (!('speechSynthesis' in window)) {
+            alert('Desculpe, seu navegador não suporta a narração de texto.');
+            return;
+        }
+
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel(); 
+            if (currentlySpeakingElement) {
+                currentlySpeakingElement.classList.remove('speaking-active');
+            }
+            if (currentlySpeakingElement === feedbackElement) { 
+                currentlySpeakingElement = null;
+                return; 
+            }
+        }
+        
+        utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = 'pt-BR';
+        const voices = speechSynthesis.getVoices();
+        let ptBRVoice = voices.find(voice => voice.lang === 'pt-BR' && voice.name.includes('Brasil'));
+        if (!ptBRVoice) { 
+            ptBRVoice = voices.find(voice => voice.lang === 'pt-BR');
+        }
+        if (ptBRVoice) {
+            utterance.voice = ptBRVoice;
+        } else {
+            console.warn("Voz em pt-BR não encontrada, usando padrão do navegador.");
+        }
+
+        utterance.onstart = () => {
+            if (currentlySpeakingElement) { 
+                currentlySpeakingElement.classList.remove('speaking-active');
+            }
+            if (feedbackElement) {
+                feedbackElement.classList.add('speaking-active');
+            }
+            currentlySpeakingElement = feedbackElement;
+        };
+        
+        utterance.onend = () => {
+            if(feedbackElement) { 
+                 feedbackElement.classList.remove('speaking-active');
+            }
+            currentlySpeakingElement = null;
+        };
+        utterance.onerror = (event) => {
+            console.error('Erro na narração:', event.error);
+            if(feedbackElement) {
+                feedbackElement.classList.remove('speaking-active');
+            }
+            currentlySpeakingElement = null;
+        };
+        
+        speechSynthesis.speak(utterance);
+    }
+
+    if ('speechSynthesis' in window) {
+        speechSynthesis.getVoices(); 
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => { 
+              speechSynthesis.getVoices(); 
+            };
+        }
+    }
+
+    // Three.js background animation
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bgCanvas'), alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCnt = 1500;
+    const posArray = new Float32Array(particlesCnt * 3);
+    for (let i = 0; i < particlesCnt * 3; i++) {
+      posArray[i] = (Math.random() - 0.5) * 30;
+    }
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+    const particlesMaterial = new THREE.PointsMaterial({
+      size: 0.07, color: 0x00695c, transparent: true, opacity: 0.7
+    });
+    const particleSystem = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particleSystem);
+    camera.position.z = 15;
+
+    const clock = new THREE.Clock();
+    function animate() {
+      const elapsedTime = clock.getElapsedTime();
+      particleSystem.rotation.y = elapsedTime * 0.05;
+      particleSystem.rotation.x = elapsedTime * 0.03;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  </script>
+</body>
+</html>
